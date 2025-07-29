@@ -1,9 +1,9 @@
-name: Deploy Portfolio Website
+name: Terraform Deployment
 
 on:
   push:
     branches:
-      - main  # or your deployment branch
+      - main
 
 jobs:
   deploy:
@@ -15,35 +15,23 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.6.0
 
-    - name: Terraform Init & Apply
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Plan
+      run: terraform plan
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+
+    # Optional: Output something like EC2 IP
+    - name: Get EC2 IP
+      id: get_ip
       run: |
-        cd terraform
-        terraform init
-        terraform apply -auto-approve
-
-    - name: Extract EC2 Public IP
-      id: ec2ip
-      run: |
-        cd terraform
-        echo "EC2_IP=$(terraform output -raw ec2_public_ip)" >> $GITHUB_OUTPUT
-
-    - name: Setup SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-
-    - name: Install Ansible
-      run: sudo apt update && sudo apt install -y ansible
-
-    - name: Run Ansible Playbook
-      run: |
-        echo "[portfolio]" > inventory.ini
-        echo "${{ steps.ec2ip.outputs.EC2_IP }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
-        ansible-playbook -i inventory.ini ansible/playbook.yml
+        IP=$(terraform output -raw public_ip)
+        echo "EC2 IP: $IP"
+        echo "ip=$IP" >> "$GITHUB_OUTPUT"
 
