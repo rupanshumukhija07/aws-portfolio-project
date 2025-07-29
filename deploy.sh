@@ -1,23 +1,53 @@
-#!/bin/bash
+name: Terraform Deployment
 
-set -e
+on:
+  push:
+    branches:
+      - main
 
-echo "🛠 Running Terraform..."
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-cd terraform
-terraform init
-terraform apply -auto-approve
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
 
-echo "📦 Extracting EC2 Public IP..."
-EC2_PUBLIC_IP=$(terraform output -raw ec2_public_ip)
-cd ..
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.6.0
 
-echo "🌐 EC2 Public IP: $EC2_PUBLIC_IP"
+    - name: Terraform Init
+      working-directory: terraform
+      run: terraform init
 
-echo "📁 Updating Ansible inventory..."
-echo "[portfolio]" > ansible/inventory.ini
-echo "$EC2_PUBLIC_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-portfolio-key" >> ansible/inventory.ini
+    - name: Terraform Apply
+      working-directory: terraform
+      run: terraform apply -auto-approve
 
-echo "🚀 Running Ansible Playbook..."
-ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
+    - name: Get EC2 Public IP
+      working-directory: terraform
+      id: ip
+      run: |
+        echo "EC2_IP=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV
 
+    - name: Setup SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+
+    - name: Install Ansible
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ansible
+
+    - name: Run Ansible Playbook
+      run: |
+        echo "[portfolio]" > inventory.ini
+        echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
+        ansible-playbook -i inventory.ini ansible/playbook.yml
