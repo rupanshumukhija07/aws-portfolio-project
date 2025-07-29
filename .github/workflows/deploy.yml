@@ -13,46 +13,46 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: 1.6.0
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
 
-    - name: Terraform Init
-      working-directory: terraform
-      run: terraform init
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
 
-    - name: Terraform Plan
-      working-directory: terraform
-      run: terraform plan
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan
 
-    - name: Terraform Apply
-      working-directory: terraform
-      run: terraform apply -auto-approve
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve
 
-    # Optional: Output something like EC2 IP
-    - name: Get EC2 IP
-      working-directory: ./terraform
-      id: get_ip 
-      run: |
-        IP=$(terraform output -raw ec2_public_ip)
-        echo "ec2_public_ip=$IP" >> "$GITHUB_OUTPUT"
-    - name: Setup SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
+      - name: Get EC2 IP
+        working-directory: terraform
+        id: get_ip
+        run: |
+          IP=$(terraform output -raw ec2_public_ip 2>/dev/null)
+          echo "ec2_public_ip=$IP" >> "$GITHUB_OUTPUT"
 
-    - name: Install Ansible
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ansible
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-    - name: Run Ansible Playbook
-      run: |
-        echo "[portfolio]" > inventory.ini
-        echo "${{ steps.get_ip.outputs.ec2_public_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
-        ansible-playbook -i inventory.ini ansible/playbook.yml
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Run Ansible Playbook
+        run: |
+          echo "[portfolio]" > inventory.ini
+          echo "${{ steps.get_ip.outputs.ec2_public_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
+          ansible-playbook -i inventory.ini ansible/playbook.yml
+
