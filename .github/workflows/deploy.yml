@@ -11,6 +11,8 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      TF_IN_AUTOMATION: 1          # <-- This reduces Terraform output noise
+      TF_LOG: ""                   # <-- Disable Terraform debug logs
 
     steps:
       - name: Checkout repo
@@ -37,7 +39,7 @@ jobs:
         working-directory: terraform
         id: get_ip
         run: |
-          IP=$(terraform output -raw ec2_public_ip 2>/dev/null)
+          IP=$(terraform output -raw ec2_public_ip)
           echo "ec2_public_ip=$IP" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
